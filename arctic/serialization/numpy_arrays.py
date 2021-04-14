@@ -116,7 +116,14 @@ class FrameConverter(object):
                 dtypes[str(c)] = arr.dtype.str
                 if mask is not None:
                     masks[str(c)] = Binary(compress(mask.tostring()))
-                arrays.append(arr.tostring())
+                # try:
+                #     serialized = arr.tostring()
+                # except:
+                #     import pickle
+                #     pickle.dumps(arr, protocol=4)
+                import pickle
+                serialized = pickle.dumps(arr)
+                arrays.append(serialized)
             except Exception as e:
                 typ = infer_dtype(df[c], skipna=False)
                 msg = "Column '{}' type is {}".format(str(c), typ)
@@ -154,7 +161,11 @@ class FrameConverter(object):
             else:
                 d = decompress(doc[DATA][doc[METADATA][LENGTHS][col][0]: doc[METADATA][LENGTHS][col][1] + 1])
                 # d is ready-only but that's not an issue since DataFrame will copy the data anyway.
-                d = np.frombuffer(d, doc[METADATA][DTYPE][col])
+                try:
+                    import pickle
+                    d = pickle.loads(d)
+                except:
+                    d = np.frombuffer(d, doc[METADATA][DTYPE][col])
 
                 if MASK in doc[METADATA] and col in doc[METADATA][MASK]:
                     mask_data = decompress(doc[METADATA][MASK][col])
