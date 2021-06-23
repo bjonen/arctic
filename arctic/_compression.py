@@ -56,7 +56,7 @@ def set_compression_pool_size(pool_size):
     _compress_thread_pool = ThreadPool(pool_size)
 
 
-def compress_array(str_list, withHC=LZ4_HIGH_COMPRESSION):
+def compress_array_base(str_list, withHC=LZ4_HIGH_COMPRESSION):
     """
     Compress an array of strings
 
@@ -92,7 +92,7 @@ def compress_array(str_list, withHC=LZ4_HIGH_COMPRESSION):
     return [do_compress(s) for s in str_list]
 
 
-def compress(_str):
+def compress_base(_str):
     """
     Compress a string
 
@@ -116,7 +116,7 @@ def compressHC_array(str_list):
     return compress_array(str_list, withHC=True)
 
 
-def decompress(_str):
+def decompress_base(_str):
     """
     Decompress a string
     """
@@ -138,3 +138,51 @@ def decompress_array(str_list):
     if _compress_thread_pool is None:
         _compress_thread_pool = ThreadPool(LZ4_WORKERS)
     return _compress_thread_pool.map(lz4_decompress, str_list)
+
+
+# Add zstandard as an alternative compressions
+try:
+    import zstandard as zstd
+except ImportError:
+    pass
+
+
+def compress_zstd(s, level=None):
+    # print('compressing with zstd')
+    kwargs = {}
+    if level is not None:
+        kwargs['level'] = level
+    cctx = zstd.ZstdCompressor(threads=-1, **kwargs)
+    return cctx.compress(s)
+
+
+def decompress_zstd(s_compressed):
+    # print('decompressing with zstd')
+    dctx = zstd.ZstdDecompressor()
+    return dctx.decompress(s_compressed)
+
+
+def decompress(_str):
+    try:
+        s = decompress_zstd(_str)
+    except:
+        s = decompress_base(_str)
+    return s
+
+
+def compress(_str, level=None):
+    try:
+        s = compress_zstd(_str, level=level)
+    except:
+        raise
+        # s = compress_base(_str)
+    return s
+
+
+def compress_array(str_list, withHC=LZ4_HIGH_COMPRESSION):
+    try:
+        out = [compress(s) for s in str_list]
+    except:
+        raise
+        # out = compress_array_base(str_list=str_list, withHC=withHC)
+    return out

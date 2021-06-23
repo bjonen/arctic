@@ -268,7 +268,8 @@ class ChunkStore(object):
         segment_cursor = self._collection.find(spec, sort=by_start_segment)
 
         chunks = defaultdict(list)
-        for _, segments in groupby(segment_cursor, key=lambda x: (x[START], x[SYMBOL])):
+        for mydate, segments in groupby(segment_cursor, key=lambda x: (x[START], x[SYMBOL])):
+            # print(f'segment {mydate}')
             segments = list(segments)
             mdata = self._mdata.find_one({SYMBOL: segments[0][SYMBOL],
                                           START: segments[0][START],
@@ -328,6 +329,7 @@ class ChunkStore(object):
                 function to apply to each chunk before writing. Function
                 can not modify the date column.
         """
+        # logger.info('chunkstore_write')
         if not isinstance(item, (DataFrame, Series)):
             raise Exception("Can only chunk DataFrames and Series")
 
@@ -357,7 +359,7 @@ class ChunkStore(object):
             data = self.serializer.serialize(record)
             doc[CHUNK_SIZE] = chunk_size
             doc[METADATA] = {'columns': data[METADATA][COLUMNS] if COLUMNS in data[METADATA] else ''}
-            meta = data[METADATA]
+            meta = data[METADATA]  # metadata for chunk. meta['masks'] is compressed but not chunked -> requires high compression
 
             for i in xrange(int(len(data[DATA]) / MAX_CHUNK_SIZE + 1)):
                 chunk = {DATA: Binary(data[DATA][i * MAX_CHUNK_SIZE: (i + 1) * MAX_CHUNK_SIZE])}
@@ -387,6 +389,8 @@ class ChunkStore(object):
             self._collection.bulk_write(ops, ordered=False)
         if meta_ops:
             self._mdata.bulk_write(meta_ops, ordered=False)
+
+        logger.info('done bulk writing')
 
         doc[CHUNK_COUNT] = chunk_count
         doc[APPEND_COUNT] = 0

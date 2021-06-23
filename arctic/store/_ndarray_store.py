@@ -632,7 +632,6 @@ class NdarrayStore(object):
         self._do_write(collection, version, symbol, item, previous_version)
 
     def _do_write(self, collection, version, symbol, item, previous_version, segment_offset=0):
-
         row_size = int(item.dtype.itemsize * np.prod(item.shape[1:]))
 
         # chunk and store the data by (uncompressed) size
@@ -656,6 +655,10 @@ class NdarrayStore(object):
         idxs = xrange(int(np.ceil(float(length) / rows_per_chunk)))
         chunks = [(item[i * rows_per_chunk: (i + 1) * rows_per_chunk]).tostring() for i in idxs]
         compressed_chunks = compress_array(chunks)
+
+        import sys
+        print(sys.getsizeof(chunks))
+        print(sys.getsizeof(compressed_chunks))
 
         # Write
         bulk = []

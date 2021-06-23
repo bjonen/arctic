@@ -5,7 +5,7 @@ import numpy.ma as ma
 import pandas as pd
 from bson import Binary, SON
 
-from .._compression import compress, decompress, compress_array
+from .._compression import compress, decompress, compress_array, compress_zstd, decompress_zstd
 from ._serializer import Serializer
 
 try:
@@ -27,6 +27,9 @@ except ImportError:
 if int(pd.__version__.split('.')[1]) > 22:
     from functools import partial
     pd.concat = partial(pd.concat, sort=False)
+
+
+log = logging.getLogger(__name__)
 
 
 DATA = 'd'
@@ -115,7 +118,7 @@ class FrameConverter(object):
                 arr, mask = self._convert_types(df[c].values)
                 dtypes[str(c)] = arr.dtype.str
                 if mask is not None:
-                    masks[str(c)] = Binary(compress(mask.tostring()))
+                    masks[str(c)] = Binary(compress(mask.tostring(), level=22))
                 # try:
                 #     serialized = arr.tostring()
                 # except:
@@ -150,6 +153,7 @@ class FrameConverter(object):
         """
         Decode a Pymongo SON object into an Pandas DataFrame
         """
+        # print(doc['md']['s'])
         cols = columns or doc[METADATA][COLUMNS]
         data = {}
 
@@ -235,12 +239,19 @@ class FrametoArraySerializer(Serializer):
         if not isinstance(data, list):
             df = self.converter.objify(data, columns)
         else:
-            df = pd.concat([self.converter.objify(d, columns) for d in data], ignore_index=not index)
+            deserialized = [self.converter.objify(d, columns) for d in data]
+            # from bonds.apps.credit_scoring import sql_env, store, store_barra, store_chunk_barra
+            # store['deser'] = deserialized
+
+            log.info('done deserialzing')
+            df = pd.concat(deserialized, ignore_index=not index)
+            log.info('done concat')
 
         if index:
             df = df.set_index(meta[INDEX])
         if meta[TYPE] == 'series':
             return df[df.columns[0]]
+        log.info('done deserialize func')
         return df
 
     def combine(self, a, b):

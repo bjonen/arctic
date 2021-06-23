@@ -659,6 +659,7 @@ class VersionStore(object):
                                                    sort=[('version', pymongo.DESCENDING)])
 
         handler = self._write_handler(version, symbol, data, **kwargs)
+        print(handler)
         handler.write(self._arctic_lib, version, symbol, data, previous_version, **kwargs)
 
         if prune_previous_version and previous_version:
